@@ -1,0 +1,47 @@
+name: WorkBuddy 每日签到与猫猫旅行
+
+on:
+  schedule:
+    # GitHub Actions 使用 UTC；01:17 UTC = 09:17 Asia/Shanghai
+    # 避开整点高负载，减少 schedule 延迟
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workbuddy-daily
+  cancel-in-progress: false
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run daily job
+        env:
+          WB_ACCESS_TOKEN: ${{ secrets.WB_ACCESS_TOKEN }}
+          WB_USER_ID: ${{ secrets.WB_USER_ID }}
+          WB_DOMAIN: ${{ secrets.WB_DOMAIN }}
+          WB_ENTERPRISE_ID: ${{ secrets.WB_ENTERPRISE_ID }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
+          WB_API_BASE: ${{ vars.WB_API_BASE || 'https://www.workbuddy.cn' }}
+          WB_TRAVEL_LOCATION_ID: ${{ vars.WB_TRAVEL_LOCATION_ID }}
+        run: |
+          PYTHON="$(command -v python3)"
+          "$PYTHON" scripts/wb_daily.py
+
+      - name: Upload redacted result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workbuddy-result
+          path: |
+            result.json
+            result.md
+          if-no-files-found: ignore
